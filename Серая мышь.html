@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Серая мышь</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg: rgb(0, 0, 21);
+    --bg-2: rgb(8, 8, 38);
+    --ink: oklch(0.95 0.01 260);
+    --ink-soft: oklch(0.68 0.02 260);
+    --line: oklch(0.35 0.02 260);
+    --accent: oklch(0.78 0.12 75);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Playfair Display', Georgia, serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 100%, var(--bg-2) 0%, transparent 70%),
+      var(--bg);
+  }
+
+  .stage {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    user-select: none;
+    cursor: pointer;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 28px; left: 0; right: 0;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    pointer-events: none;
+    opacity: 0.7;
+  }
+  .hint .kbd {
+    display: inline-block;
+    padding: 2px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.06);
+    color: var(--ink);
+    margin: 0 2px;
+  }
+
+  .counter {
+    position: fixed;
+    top: 24px; left: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+  .counter b { color: var(--ink); font-weight: 700; }
+
+  .credit {
+    position: fixed;
+    top: 24px; right: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  /* mouse wrapper */
+  .mouse-wrap {
+    position: relative;
+    width: min(60vmin, 480px);
+    aspect-ratio: 1.05 / 1;
+    transition: transform 200ms cubic-bezier(.34,1.56,.64,1);
+    z-index: 2;
+  }
+  .mouse-wrap.idle { animation: breathe 3.6s ease-in-out infinite; }
+  .mouse-wrap.squish { transform: scale(0.92, 0.86) translateY(8px); }
+  .mouse-wrap.hover { transform: translateY(-4px); }
+  @keyframes breathe {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-6px) scale(1.01); }
+  }
+
+  /* ──────────── FORTNITE DANCE MODE ──────────── */
+  .mouse-wrap.dancing { transition: none; animation: none; }
+
+  /* 1. FLOSS — hips swing one way, arms (body) opposite */
+  .mouse-wrap.dance-floss { animation: floss 0.5s linear infinite; }
+  @keyframes floss {
+    0%   { transform: translateX(-22px) rotate(-8deg) skewX(6deg); }
+    25%  { transform: translateX(0)     rotate(0deg)  skewX(-4deg); }
+    50%  { transform: translateX(22px)  rotate(8deg)  skewX(-6deg); }
+    75%  { transform: translateX(0)     rotate(0deg)  skewX(4deg); }
+    100% { transform: translateX(-22px) rotate(-8deg) skewX(6deg); }
+  }
+
+  /* 2. DEFAULT DANCE — classic hip bob */
+  .mouse-wrap.dance-default { animation: defaultDance 0.45s cubic-bezier(.4,.0,.4,1) infinite; }
+  @keyframes defaultDance {
+    0%   { transform: translateY(0)    rotate(-4deg) scaleY(1); }
+    25%  { transform: translateY(-30px) rotate(0deg)  scaleY(0.96); }
+    50%  { transform: translateY(0)    rotate(4deg)  scaleY(1.04); }
+    75%  { transform: translateY(-30px) rotate(0deg)  scaleY(0.96); }
+    100% { transform: translateY(0)    rotate(-4deg) scaleY(1); }
+  }
+
+  /* 3. TAKE THE L — lean side to side, hop */
+  .mouse-wrap.dance-l { animation: takeTheL 0.6s cubic-bezier(.5,0,.5,1) infinite; }
+  @keyframes takeTheL {
+    0%   { transform: translate(-40px, 0) rotate(-14deg); }
+    50%  { transform: translate(40px, -18px) rotate(14deg); }
+    100% { transform: translate(-40px, 0) rotate(-14deg); }
+  }
+
+  /* 4. ORANGE JUSTICE — flailing chaos */
+  .mouse-wrap.dance-orange { animation: orangeJustice 0.35s linear infinite; }
+  @keyframes orangeJustice {
+    0%   { transform: translate(-18px, -8px) rotate(-12deg) scale(1.02); }
+    20%  { transform: translate(22px, 4px)   rotate(10deg)  scale(0.98); }
+    40%  { transform: translate(-10px, -14px) rotate(-6deg) scale(1.05); }
+    60%  { transform: translate(14px, 6px)   rotate(14deg)  scale(0.95); }
+    80%  { transform: translate(-22px, -4px) rotate(-10deg) scale(1.03); }
+    100% { transform: translate(-18px, -8px) rotate(-12deg) scale(1.02); }
+  }
+
+  /* 5. SHOOT (hype) — bounce up high */
+  .mouse-wrap.dance-shoot { animation: shootDance 0.55s cubic-bezier(.5,0,.5,1) infinite; }
+  @keyframes shootDance {
+    0%   { transform: translateY(0)     scale(1, 1)       rotate(0deg); }
+    20%  { transform: translateY(-60px) scale(0.92, 1.12) rotate(-6deg); }
+    50%  { transform: translateY(8px)   scale(1.1, 0.88)  rotate(0deg); }
+    80%  { transform: translateY(-50px) scale(0.94, 1.08) rotate(6deg); }
+    100% { transform: translateY(0)     scale(1, 1)       rotate(0deg); }
+  }
+
+  /* Disco floor — radial pulsing lights behind the mouse */
+  .disco {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 250ms ease;
+    overflow: hidden;
+    z-index: 1;
+  }
+  .disco.on { opacity: 1; }
+  .disco::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 50% 60%, oklch(0.78 0.2 30 / 0.35), transparent 35%),
+      radial-gradient(circle at 30% 70%, oklch(0.78 0.2 200 / 0.30), transparent 30%),
+      radial-gradient(circle at 70% 70%, oklch(0.82 0.18 130 / 0.30), transparent 30%),
+      radial-gradient(circle at 50% 85%, oklch(0.80 0.22 320 / 0.32), transparent 35%);
+    animation: discoLights 1.4s steps(8, end) infinite;
+    mix-blend-mode: screen;
+  }
+  @keyframes discoLights {
+    0%   { transform: rotate(0deg)   scale(1.05); filter: hue-rotate(0deg); }
+    100% { transform: rotate(360deg) scale(1.05); filter: hue-rotate(360deg); }
+  }
+  .disco::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(
+        45deg,
+        transparent 0 40px,
+        oklch(0.95 0.18 80 / 0.06) 40px 42px
+      );
+    animation: strobe 0.25s steps(2, end) infinite;
+  }
+  @keyframes strobe {
+    0%, 49% { opacity: 0.4; }
+    50%, 100% { opacity: 1; }
+  }
+
+  /* Dance name label */
+  .dance-label {
+    position: fixed;
+    left: 50%; top: 18%;
+    transform: translate(-50%, 0) rotate(-3deg);
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: clamp(36px, 7vmin, 84px);
+    letter-spacing: -0.02em;
+    color: oklch(0.97 0.02 80);
+    text-shadow:
+      0 0 0 oklch(0.85 0.2 30),
+      4px 4px 0 oklch(0.65 0.22 25),
+      -2px -2px 0 oklch(0.75 0.22 220),
+      0 18px 60px oklch(0.6 0.2 30 / 0.5);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 5;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .dance-label.show {
+    animation: labelBurst 1.2s cubic-bezier(.34,1.56,.64,1) forwards;
+  }
+  @keyframes labelBurst {
+    0%   { opacity: 0; transform: translate(-50%, 20px) rotate(-3deg) scale(0.4); }
+    15%  { opacity: 1; transform: translate(-50%, 0) rotate(2deg) scale(1.15); }
+    25%  { transform: translate(-50%, 0) rotate(-3deg) scale(1); }
+    80%  { opacity: 1; transform: translate(-50%, 0) rotate(-3deg) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -30px) rotate(-3deg) scale(0.95); }
+  }
+
+  /* Confetti */
+  .confetti {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 4;
+  }
+  .confetti i {
+    position: absolute;
+    width: 10px; height: 16px;
+    top: -20px;
+    will-change: transform, opacity;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translate3d(0, -20px, 0) rotate(0deg); opacity: 1; }
+    100% { transform: translate3d(var(--dx, 0), 110vh, 0) rotate(720deg); opacity: 0.9; }
+  }
+
+  /* speech bubbles */
+  .bubbles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .bubble {
+    position: absolute;
+    transform: translate(-50%, -100%);
+    background: oklch(0.98 0.01 80);
+    border: 2px solid oklch(0.18 0.01 260);
+    color: oklch(0.18 0.01 260);
+    padding: 14px 26px;
+    border-radius: 22px;
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-style: italic;
+    font-size: clamp(18px, 2.6vmin, 26px);
+    letter-spacing: -0.01em;
+    box-shadow: 0 10px 0 -2px rgba(0,0,0,0.18), 0 24px 60px -10px rgba(0,0,0,0.5);
+    white-space: nowrap;
+    animation: pop 1.6s cubic-bezier(.34,1.56,.64,1) forwards;
+    transform-origin: bottom center;
+  }
+  .bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -10px; left: 50%;
+    transform: translateX(-50%);
+    width: 16px; height: 16px;
+    background: oklch(0.98 0.01 80);
+    border-right: 2px solid oklch(0.18 0.01 260);
+    border-bottom: 2px solid oklch(0.18 0.01 260);
+    rotate: 45deg;
+  }
+  @keyframes pop {
+    0%   { opacity: 0; transform: translate(-50%, -80%) scale(0.5) rotate(-4deg); }
+    18%  { opacity: 1; transform: translate(-50%, -110%) scale(1.06) rotate(2deg); }
+    28%  { transform: translate(-50%, -105%) scale(1) rotate(-1deg); }
+    75%  { opacity: 1; transform: translate(-50%, -120%) scale(1) rotate(0); }
+    100% { opacity: 0; transform: translate(-50%, -160%) scale(0.9) rotate(0); }
+  }
+
+  /* tweaks panel customizations are handled by starter */
+</style>
+</head>
+<body>
+
+<div class="counter">Кликов: <b id="clickCount">0</b></div>
+<div class="credit">тык по мыши →</div>
+
+<div class="disco" id="disco" aria-hidden="true"></div>
+<div class="dance-label" id="danceLabel">FLOSS</div>
+<div class="confetti" id="confetti" aria-hidden="true"></div>
+
+<div class="stage" id="stage" role="button" aria-label="Серая мышь — нажми, чтобы услышать имя">
+  <div class="mouse-wrap idle" id="mouseWrap">
+    <svg viewBox="0 0 520 500" width="100%" height="100%" id="mouseSvg" aria-hidden="true">
+      <defs>
+        <radialGradient id="bodyGrad" cx="50%" cy="38%" r="62%">
+          <stop offset="0%"  stop-color="oklch(0.82 0.005 270)" />
+          <stop offset="60%" stop-color="oklch(0.70 0.006 270)" />
+          <stop offset="100%" stop-color="oklch(0.58 0.008 270)" />
+        </radialGradient>
+        <radialGradient id="earOuter" cx="50%" cy="50%" r="60%">
+          <stop offset="0%"  stop-color="oklch(0.75 0.006 270)" />
+          <stop offset="100%" stop-color="oklch(0.60 0.008 270)" />
+        </radialGradient>
+        <radialGradient id="earInner" cx="50%" cy="55%" r="55%">
+          <stop offset="0%"  stop-color="oklch(0.86 0.04 20)" />
+          <stop offset="100%" stop-color="oklch(0.70 0.06 20)" />
+        </radialGradient>
+        <radialGradient id="bellyGrad" cx="50%" cy="50%" r="60%">
+          <stop offset="0%"  stop-color="oklch(0.95 0.003 80)" />
+          <stop offset="100%" stop-color="oklch(0.85 0.005 80)" />
+        </radialGradient>
+        <radialGradient id="cheekGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"  stop-color="oklch(0.82 0.09 20 / 0.7)" />
+          <stop offset="100%" stop-color="oklch(0.82 0.09 20 / 0)" />
+        </radialGradient>
+        <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2" />
+        </filter>
+      </defs>
+
+      <!-- shadow -->
+      <ellipse cx="260" cy="460" rx="170" ry="14" fill="oklch(0.4 0.01 270 / 0.18)" />
+
+      <!-- tail -->
+      <path id="tail" d="M 410 360 Q 490 360 490 290 Q 490 230 440 230"
+            stroke="oklch(0.62 0.008 270)" stroke-width="14" fill="none" stroke-linecap="round" />
+
+      <!-- ears (back layer for depth) -->
+      <g id="earLeft" style="transform-origin: 165px 145px;">
+        <circle cx="165" cy="145" r="72" fill="url(#earOuter)" />
+        <circle cx="165" cy="148" r="48" fill="url(#earInner)" />
+      </g>
+      <g id="earRight" style="transform-origin: 355px 145px;">
+        <circle cx="355" cy="145" r="72" fill="url(#earOuter)" />
+        <circle cx="355" cy="148" r="48" fill="url(#earInner)" />
+      </g>
+
+      <!-- body / head as one rounded blob -->
+      <ellipse cx="260" cy="280" rx="180" ry="170" fill="url(#bodyGrad)" />
+      <!-- belly -->
+      <ellipse cx="260" cy="330" rx="120" ry="105" fill="url(#bellyGrad)" />
+
+      <!-- cheeks -->
+      <circle cx="170" cy="310" r="34" fill="url(#cheekGrad)" />
+      <circle cx="350" cy="310" r="34" fill="url(#cheekGrad)" />
+
+      <!-- eyes -->
+      <g id="eyes">
+        <ellipse class="eye" cx="210" cy="260" rx="14" ry="18" fill="oklch(0.18 0.01 270)" />
+        <ellipse class="eye" cx="310" cy="260" rx="14" ry="18" fill="oklch(0.18 0.01 270)" />
+        <!-- highlights -->
+        <circle cx="214" cy="254" r="4" fill="white" />
+        <circle cx="314" cy="254" r="4" fill="white" />
+      </g>
+
+      <!-- nose -->
+      <ellipse id="nose" cx="260" cy="305" rx="11" ry="8" fill="oklch(0.55 0.13 20)" />
+
+      <!-- mouth -->
+      <path id="mouth" d="M 260 313 Q 260 330 244 332 M 260 313 Q 260 330 276 332"
+            stroke="oklch(0.25 0.01 270)" stroke-width="3.5" fill="none" stroke-linecap="round" />
+
+      <!-- whiskers -->
+      <g stroke="oklch(0.35 0.01 270)" stroke-width="2" stroke-linecap="round" opacity="0.7">
+        <line x1="155" y1="305" x2="100" y2="295" />
+        <line x1="155" y1="320" x2="95"  y2="320" />
+        <line x1="155" y1="335" x2="100" y2="345" />
+        <line x1="365" y1="305" x2="420" y2="295" />
+        <line x1="365" y1="320" x2="425" y2="320" />
+        <line x1="365" y1="335" x2="420" y2="345" />
+      </g>
+
+      <!-- tiny feet -->
+      <ellipse cx="210" cy="445" rx="28" ry="10" fill="oklch(0.58 0.008 270)" />
+      <ellipse cx="310" cy="445" rx="28" ry="10" fill="oklch(0.58 0.008 270)" />
+    </svg>
+  </div>
+</div>
+
+<div class="bubbles" id="bubbles"></div>
+
+<div class="hint">кликни мышь · <span class="kbd">пробел</span> тоже работает</div>
+
+<!-- Tweaks defaults -->
+<script>
+window.__TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "phrase": "я..кирилл..евсиков",
+  "voice": true,
+  "pitch": 0.8,
+  "rate": 0.75,
+  "earWiggle": true,
+  "mouseTint": "pink"
+}/*EDITMODE-END*/;
+</script>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const wrap  = document.getElementById('mouseWrap');
+  const bubbles = document.getElementById('bubbles');
+  const counterEl = document.getElementById('clickCount');
+  const earLeft  = document.getElementById('earLeft');
+  const earRight = document.getElementById('earRight');
+  const tail = document.getElementById('tail');
+  const mouth = document.getElementById('mouth');
+  const eyes = document.getElementById('eyes');
+  const mouseSvg = document.getElementById('mouseSvg');
+
+  let tweaks = { ...window.__TWEAK_DEFAULTS };
+  window.addEventListener('message', (e) => {
+    const d = e.data || {};
+    if (d.type === '__edit_mode_set_keys' && d.edits) {
+      Object.assign(tweaks, d.edits);
+      applyTint();
+    }
+    if (d.type === '__tweaks_state_replace' && d.state) {
+      Object.assign(tweaks, d.state);
+      applyTint();
+    }
+  });
+
+  // Tint palettes
+  const tints = {
+    gray:  ['oklch(0.82 0.005 270)', 'oklch(0.70 0.006 270)', 'oklch(0.58 0.008 270)'],
+    warm:  ['oklch(0.84 0.02 70)',   'oklch(0.72 0.025 70)',  'oklch(0.58 0.03 70)'],
+    cool:  ['oklch(0.84 0.02 230)',  'oklch(0.72 0.025 230)', 'oklch(0.58 0.03 230)'],
+    pink:  ['oklch(0.88 0.04 20)',   'oklch(0.78 0.06 20)',   'oklch(0.65 0.08 20)'],
+  };
+  function applyTint() {
+    const t = tints[tweaks.mouseTint] || tints.gray;
+    const grad = document.querySelector('#bodyGrad');
+    if (grad) {
+      const stops = grad.querySelectorAll('stop');
+      stops[0].setAttribute('stop-color', t[0]);
+      stops[1].setAttribute('stop-color', t[1]);
+      stops[2].setAttribute('stop-color', t[2]);
+    }
+  }
+
+  let clicks = 0;
+  let blinkTimer;
+
+  // gentle eye blink
+  function blink() {
+    eyes.querySelectorAll('.eye').forEach(e => e.setAttribute('ry', 1));
+    setTimeout(() => eyes.querySelectorAll('.eye').forEach(e => e.setAttribute('ry', 18)), 120);
+  }
+  function scheduleBlink() {
+    const next = 2200 + Math.random()*3200;
+    blinkTimer = setTimeout(() => { blink(); scheduleBlink(); }, next);
+  }
+  scheduleBlink();
+
+  // tail sway
+  let t0 = performance.now();
+  function animate() {
+    const t = (performance.now() - t0) / 1000;
+    const sway = Math.sin(t * 1.6) * 12;
+    tail.setAttribute('d',
+      `M 410 360 Q ${490 + sway} ${360 - sway*0.4} ${490 + sway*0.5} ${290 - Math.cos(t*1.6)*6}
+       Q ${490 + sway*0.2} 230 ${440 + sway*0.6} 230`
+    );
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  // hover: ears perk
+  stage.addEventListener('mouseenter', () => {
+    wrap.classList.add('hover');
+  });
+  stage.addEventListener('mouseleave', () => {
+    wrap.classList.remove('hover');
+  });
+
+  function wiggleEars() {
+    if (!tweaks.earWiggle) return;
+    [earLeft, earRight].forEach((ear, i) => {
+      const dir = i === 0 ? -1 : 1;
+      ear.animate(
+        [
+          { transform: 'rotate(0deg)' },
+          { transform: `rotate(${dir * 18}deg)` },
+          { transform: 'rotate(0deg)' },
+        ],
+        { duration: 520, easing: 'cubic-bezier(.34,1.56,.64,1)' }
+      );
+    });
+  }
+
+  function happyMouth() {
+    mouth.animate(
+      [
+        { d: 'path("M 240 318 Q 260 348 280 318")', offset: 0 },
+        { d: 'path("M 232 312 Q 260 360 288 312")', offset: 0.5 },
+        { d: 'path("M 260 313 Q 260 330 244 332 M 260 313 Q 260 330 276 332")', offset: 1 },
+      ],
+      { duration: 700, easing: 'ease-out' }
+    );
+  }
+
+  function showBubble(text, x, y) {
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    b.textContent = text;
+    b.style.left = x + 'px';
+    b.style.top  = y + 'px';
+    bubbles.appendChild(b);
+    setTimeout(() => b.remove(), 1700);
+  }
+
+  function speak(text) {
+    if (!tweaks.voice) return;
+    if (!('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ru-RU';
+      u.pitch = tweaks.pitch;
+      u.rate  = tweaks.rate;
+      // try to pick a Russian voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const ru = voices.find(v => /ru/i.test(v.lang));
+      if (ru) u.voice = ru;
+      window.speechSynthesis.speak(u);
+    } catch (e) { /* ignore */ }
+  }
+
+  // ─── FORTNITE DANCE MODE ───
+  const disco = document.getElementById('disco');
+  const danceLabel = document.getElementById('danceLabel');
+  const confetti = document.getElementById('confetti');
+
+  const DANCES = [
+    { cls: 'dance-floss',   name: 'FLOSS',         duration: 2600 },
+    { cls: 'dance-default', name: 'DEFAULT DANCE', duration: 2400 },
+    { cls: 'dance-l',       name: 'TAKE THE L',    duration: 2400 },
+    { cls: 'dance-orange',  name: 'ORANGE JUSTICE',duration: 2200 },
+    { cls: 'dance-shoot',   name: 'HYPE',          duration: 2400 },
+  ];
+  let danceIdx = 0;
+  let danceTimer = null;
+  let danceEarTimer = null;
+  let isDancing = false;
+
+  function spawnConfetti(n = 60) {
+    const colors = [
+      'oklch(0.78 0.2 30)',
+      'oklch(0.82 0.18 130)',
+      'oklch(0.78 0.2 200)',
+      'oklch(0.80 0.22 320)',
+      'oklch(0.92 0.16 90)',
+    ];
+    for (let i = 0; i < n; i++) {
+      const piece = document.createElement('i');
+      piece.style.left = (Math.random() * 100) + 'vw';
+      piece.style.background = colors[i % colors.length];
+      piece.style.setProperty('--dx', (Math.random() * 240 - 120) + 'px');
+      piece.style.animationDuration = (1.6 + Math.random() * 1.4) + 's';
+      piece.style.animationDelay = (Math.random() * 0.4) + 's';
+      piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+      if (Math.random() > 0.6) piece.style.borderRadius = '50%';
+      confetti.appendChild(piece);
+      setTimeout(() => piece.remove(), 3200);
+    }
+  }
+
+  function startDance() {
+    const dance = DANCES[danceIdx % DANCES.length];
+    danceIdx++;
+
+    // clear any previous dance class
+    DANCES.forEach(d => wrap.classList.remove(d.cls));
+    wrap.classList.remove('idle', 'squish', 'hover');
+    // force reflow so the new animation restarts
+    void wrap.offsetWidth;
+    wrap.classList.add('dancing', dance.cls);
+
+    disco.classList.add('on');
+
+    danceLabel.textContent = dance.name;
+    danceLabel.classList.remove('show');
+    void danceLabel.offsetWidth;
+    danceLabel.classList.add('show');
+
+    spawnConfetti(70);
+
+    // extra ear/tail flair while dancing
+    isDancing = true;
+    clearInterval(danceEarTimer);
+    danceEarTimer = setInterval(() => {
+      if (tweaks.earWiggle) wiggleEars();
+    }, 320);
+
+    clearTimeout(danceTimer);
+    danceTimer = setTimeout(stopDance, dance.duration);
+  }
+
+  function stopDance() {
+    isDancing = false;
+    clearInterval(danceEarTimer);
+    DANCES.forEach(d => wrap.classList.remove(d.cls));
+    wrap.classList.remove('dancing');
+    wrap.classList.add('idle');
+    disco.classList.remove('on');
+  }
+
+  function click(ev) {
+    clicks++;
+    counterEl.textContent = clicks;
+
+    wiggleEars();
+    happyMouth();
+
+    // bubble position
+    const rect = mouseSvg.getBoundingClientRect();
+    const x = rect.left + rect.width / 2 + (Math.random() * 40 - 20);
+    const y = rect.top  + rect.height * 0.18;
+    showBubble(tweaks.phrase, x, y);
+
+    speak(tweaks.phrase);
+
+    // GO DANCE
+    startDance();
+  }
+
+  stage.addEventListener('click', click);
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.code === 'Enter') {
+      e.preventDefault();
+      click();
+    }
+  });
+
+  // make speechSynthesis populate voices on some browsers
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => {};
+    window.speechSynthesis.getVoices();
+  }
+
+  applyTint();
+})();
+</script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+const {
+  TweaksPanel, TweakSection, TweakSlider, TweakToggle, TweakText, TweakRadio, useTweaks
+} = window;
+
+function App() {
+  const [tweaks, setTweak] = useTweaks(window.__TWEAK_DEFAULTS);
+  // also replay state to non-react listener
+  useEffect(() => {
+    window.postMessage({ type: '__tweaks_state_replace', state: tweaks }, '*');
+  }, [tweaks]);
+
+  const { TweakSelect } = window;
+
+  return (
+    <TweaksPanel title="Tweaks">
+      <TweakSection title="Реплика">
+        <TweakText
+          label="Фраза"
+          value={tweaks.phrase}
+          onChange={(v) => setTweak('phrase', v)}
+        />
+      </TweakSection>
+      <TweakSection title="Голос">
+        <TweakToggle
+          label="Озвучивать"
+          value={tweaks.voice}
+          onChange={(v) => setTweak('voice', v)}
+        />
+        <TweakSlider
+          label="Высота"
+          min={0.5} max={2} step={0.05}
+          value={tweaks.pitch}
+          onChange={(v) => setTweak('pitch', v)}
+        />
+        <TweakSlider
+          label="Скорость"
+          min={0.5} max={1.6} step={0.05}
+          value={tweaks.rate}
+          onChange={(v) => setTweak('rate', v)}
+        />
+      </TweakSection>
+      <TweakSection title="Анимация">
+        <TweakToggle
+          label="Уши шевелятся"
+          value={tweaks.earWiggle}
+          onChange={(v) => setTweak('earWiggle', v)}
+        />
+      </TweakSection>
+      <TweakSection title="Окрас">
+        <TweakSelect
+          label="Цвет"
+          value={tweaks.mouseTint}
+          options={['gray', 'warm', 'cool', 'pink']}
+          onChange={(v) => setTweak('mouseTint', v)}
+        />
+      </TweakSection>
+    </TweaksPanel>
+  );
+}
+
+const root = document.createElement('div');
+document.body.appendChild(root);
+ReactDOM.createRoot(root).render(<App />);
+</script>
+
+</body>
+</html>
